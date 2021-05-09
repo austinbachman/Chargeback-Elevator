@@ -1,10 +1,14 @@
+require_relative 'Constants.rb'
+
 class Elevator
+  include Constants
+
   attr_reader :elevator_number
 
   def initialize(elevator_system, elevator_number)
     @elevator_system = elevator_system
-    @current_floor = 1
-    @direction = 0
+    @current_floor = BOTTOM_FLOOR
+    @direction = STATIONARY
     @elevator_number = elevator_number
     @dropoff_calls = []
   end
@@ -17,7 +21,7 @@ class Elevator
     # set next direction based on requests for dropoffs and pickups
     set_next_direction
     # set next floor
-    @current_floor = (@current_floor + @direction).clamp(1, @elevator_system.floors)
+    @current_floor = (@current_floor + @direction).clamp(BOTTOM_FLOOR, @elevator_system.floors)
   end
 
   def request_dropoff(floor)
@@ -33,29 +37,34 @@ class Elevator
   end
 
   def perform_pickups
-    # check for picking up a pickup_call here
-    # needs more complicated logic to check the direction, i.e. stationary
-    # todo: define should_pickup_at_current_floor
-    if (@elevator_system.pickup_calls.any? { |call| call.floor == @current_floor })
+    if should_pickup_at_current_floor?
       @elevator_system.floor_picked_up(@current_floor)
       puts "Passenger(s) picked up by elevator ##{@elevator_number} from floor #{@current_floor}"
     end
   end
 
+  def should_pickup_at_current_floor?
+    if stationary?
+      @elevator_system.pickup_calls.any? { |call| call.floor == @current_floor }
+    else
+      @elevator_system.pickup_calls.any? { |call| call.floor == @current_floor && call.direction == @direction }
+    end
+  end
+
   def set_next_direction
-    @direction = @direction == 0 ? set_direction_from_stationary : set_direction_from_moving
+    @direction = stationary? ? set_direction_from_stationary : set_direction_from_moving
   end
 
   def set_direction_from_stationary
     # set direction towards closest dropoff
     closest_dropoff = @dropoff_calls.min_by{ |floor| (floor - @current_floor).abs }
     if closest_dropoff
-      return (closest_dropoff - @current_floor).positive? ? 1 : -1
+      return (closest_dropoff - @current_floor).positive? ? UP : DOWN
     end
     # if there are no dropoffs, set direction towards closest pickup
     closest_pickup = @elevator_system.pickup_calls.min_by{ |call| (call.floor - @current_floor).abs }
     if closest_pickup
-      return (closest_pickup.floor - @current_floor).positive? ? 1 : -1
+      return (closest_pickup.floor - @current_floor).positive? ? UP : DOWN
     end
     @direction
   end
@@ -66,14 +75,14 @@ class Elevator
     stops_upwards = dropoffs_up.any? || pickups_up.any?
     stops_downwards = dropoffs_down.any? || pickups_down.any?
     # check for pickups or dropoffs in current direction
-    keep_going_up = (@direction == 1) && stops_upwards
-    keep_going_down = (@direction == -1) && stops_downwards
+    keep_going_up = going_up? && stops_upwards
+    keep_going_down = going_down? && stops_downwards
     keep_current_direction = keep_going_up || keep_going_down
     # continue that way if there are any
     return @direction if keep_current_direction
     # else check in opposite direction
-    start_going_up = (@direction == -1) && stops_upwards
-    start_going_down = (@direction == 1) && stops_downwards
+    start_going_up = going_down? && stops_upwards
+    start_going_down = going_up? && stops_downwards
     reverse_direction = start_going_up || start_going_down
     # reverse direction if there are any
     return reverse(@direction) if reverse_direction
@@ -83,5 +92,11 @@ class Elevator
 
   def reverse(direction)
     direction * -1
+  end
+
+  DIRECTIONS.each do |_, dir|
+    define_method "#{dir[:description]}?" do
+      @direction == dir[:value]
+    end
   end
 end

@@ -21,7 +21,6 @@ class ElevatorSystem
 
   def request_pickup(floor:, direction:)
     raise ArgumentError.new 'Invalid floor' unless floor.between?(1, @floors)
-    raise ArgumentError.new 'Direction invalid - must be -1 or 1' unless [-1,1].include? direction
     @pickup_calls << PickupCall.new(floor, direction)
   end
 
