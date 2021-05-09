@@ -28,6 +28,11 @@ class Elevator
     @dropoff_calls << floor
   end
 
+  def print_status
+    dir_status = DIRECTIONS.values.find { |d| d[:value] == @direction }[:description].gsub('_', ' ')
+    puts "Elevator ##{@elevator_number} at floor #{@current_floor} #{dir_status}"
+  end
+
   private
 
   def perform_dropoffs
@@ -55,6 +60,10 @@ class Elevator
     @direction = stationary? ? set_direction_from_stationary : set_direction_from_moving
   end
 
+  # TODO: this needs to be much more complicated regarding pickups -
+  # we should send only the closest elevator towards a pickup_call
+  # with a heuristic based on the direction it is moving
+  # and number of other stops
   def set_direction_from_stationary
     # set direction towards closest dropoff
     closest_dropoff = @dropoff_calls.min_by{ |floor| (floor - @current_floor).abs }
